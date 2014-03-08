@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <stdio.h>
+#include <limits.h>
 
 frame cached_frame;
 int time_to_timeout;
@@ -90,10 +92,16 @@ frame msg_to_frame(msg *m) {
  * Waits timeout milliseconds to receive a message
  */
 event wait_for_event(int timeout) {
-    msg *m =  receive_message_timeout(timeout);
+    /*
+    msg *m = receive_message_timeout(timeout);
     if (m == NULL) {
         return EVENT_TIMEOUT;
     }
+    */   // TODO //
+
+    msg r;
+    recv_message(&r);
+    msg *m = &r;
 
     cached_frame = msg_to_frame(m);
     if (verify_checksum(cached_frame)) {
@@ -122,4 +130,46 @@ bool is_empty(packet *p) {
 uint8_t random_payload_length(void) {
     srandom(time(NULL));
     return 1 + random() % MAX_PAYLOAD_SIZE;
+}
+
+/*
+ * Pretty-prints a packet to stdout
+ */
+void print_packet(packet *p) {
+    printf("%d|", p->length);
+    uint8_t i;
+    for (i = 0; i < p->length; i++) {
+        printf("%c", p->data[i]);
+    }
+    printf("\n");
+}
+
+void print_binary(uint8_t byte) {
+    uint8_t i,
+            mask = 1 << (CHAR_BIT - 1);
+    for (i = 0; i < CHAR_BIT; i++) {
+        printf("%d", ((byte & mask) == 0) ? 0 : 1);
+        mask >>= 1;
+    }
+}
+
+void print_frame(frame *f) {
+    printf("---- FRAME %d ----\n", f->seq);
+    print_packet(&f->payload);
+    printf("---- ");
+    print_binary(f->checksum);
+    printf(" ----\n");
+}
+
+void print_event(event ev) {
+    switch (ev) {
+        case EVENT_CORRECT:
+            printf("CORRECT FRAME RECEIVED\n");
+            break;
+        case EVENT_INCORRECT:
+            printf("INCORRECT FRAME RECEIVED\n");
+            break;
+        case EVENT_TIMEOUT:
+            printf("TIMEOUT\n");
+    }
 }

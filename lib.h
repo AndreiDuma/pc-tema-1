@@ -41,7 +41,12 @@ void to_physical_layer(frame *f);
 uint8_t random_payload_length(void);
 bool is_empty(packet *p);
 
-void chunk_provider(packet *p);
-void chunk_processor(packet *p);
+bool chunk_provider(packet *p);
+bool chunk_processor(packet *p);
+
+void print_packet(packet *p);
+void print_binary(uint8_t byte);
+void print_frame(frame *f);
+void print_event(event ev);
 
 #endif
