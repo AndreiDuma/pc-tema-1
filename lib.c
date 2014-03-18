@@ -92,16 +92,17 @@ frame msg_to_frame(msg *m) {
  * Waits timeout milliseconds to receive a message
  */
 event wait_for_event(int timeout) {
-    /*
+
     msg *m = receive_message_timeout(timeout);
     if (m == NULL) {
         return EVENT_TIMEOUT;
     }
-    */   // TODO //
 
+    /*
     msg r;
     recv_message(&r);
     msg *m = &r;
+    */
 
     cached_frame = msg_to_frame(m);
     if (verify_checksum(cached_frame)) {
@@ -135,30 +136,33 @@ uint8_t random_payload_length(void) {
 /*
  * Pretty-prints a packet to stdout
  */
-void print_packet(packet *p) {
-    printf("%d|", p->length);
+void print_packet(FILE *stream, packet *p) {
     uint8_t i;
     for (i = 0; i < p->length; i++) {
-        printf("%c", p->data[i]);
+        fprintf(stream, "%c", p->data[i]);
     }
-    printf("\n");
 }
 
-void print_binary(uint8_t byte) {
+void print_binary(FILE *stream, uint8_t byte) {
     uint8_t i,
             mask = 1 << (CHAR_BIT - 1);
     for (i = 0; i < CHAR_BIT; i++) {
-        printf("%d", ((byte & mask) == 0) ? 0 : 1);
+        fprintf(stream, "%d", ((byte & mask) == 0) ? 0 : 1);
         mask >>= 1;
     }
 }
 
-void print_frame(frame *f) {
-    printf("---- FRAME %d ----\n", f->seq);
-    print_packet(&f->payload);
-    printf("---- ");
-    print_binary(f->checksum);
-    printf(" ----\n");
+void print_frame(FILE *stream, frame *f) {
+    fprintf(stream,
+            "Seq No: %d\n"
+            "Payload: ", f->seq);
+    print_packet(stream, &f->payload);
+    fprintf(stream,
+            "\n"
+            "Checksum: ");
+    print_binary(stream, f->checksum);
+    fprintf(stream,
+            "\n----------------------------------------------------------\n");
 }
 
 void print_event(event ev) {
@@ -172,4 +176,29 @@ void print_event(event ev) {
         case EVENT_TIMEOUT:
             printf("TIMEOUT\n");
     }
+}
+
+void print_current_time(FILE *stream) {
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    char buffer[25];
+
+    strftime(buffer, sizeof buffer, "[%d-%m-%Y %T]", t);
+    fprintf(stream, "%s", buffer);
+}
+
+/* Logging functions */
+void log_message(FILE *stream, const char *message) {
+    fseek(stream, 0, SEEK_END);
+    print_current_time(stream);
+    fprintf(stream, " %s", message);
+    fprintf(stream, "\n--------------------------------------------------------------------------------\n");
+}
+
+void log_frame(FILE *stream, const char *message, frame *f) {
+    fseek(stream, 0, SEEK_END);
+    print_current_time(stream);
+    fprintf(stream, " %s", message);
+    print_frame(stream, f);
+    fprintf(stream, "\n--------------------------------------------------------------------------------\n");
 }

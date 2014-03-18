@@ -3,9 +3,11 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include "link_emulator/lib.h"
 
 #define MAX_PAYLOAD_SIZE 60
+#define LOG_FILE "log.txt"
 
 typedef uint8_t seq_nr;
 typedef struct {
@@ -44,9 +46,10 @@ bool is_empty(packet *p);
 bool chunk_provider(packet *p);
 bool chunk_processor(packet *p);
 
-void print_packet(packet *p);
-void print_binary(uint8_t byte);
-void print_frame(frame *f);
+void print_packet(FILE *stream, packet *p);
+void print_binary(FILE *stream, uint8_t byte);
+void print_frame(FILE * stream, frame *f);
 void print_event(event ev);
+void print_current_time(FILE *stream);
 
 #endif

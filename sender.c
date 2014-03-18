@@ -8,10 +8,12 @@
 
 #define HOST "127.0.0.1"
 #define PORT 10000
-#define TIMEOUT 1000
+#define TIMEOUT 200
 
 void sender(bool (*from_network_layer)(packet *)) {
     init(HOST, PORT);
+
+    FILE *log_file;
 
     seq_nr next_frame_to_send; /* sequence number pentru urmatorul cadru */
     frame s; /* cadru de trimis */
@@ -28,14 +30,31 @@ void sender(bool (*from_network_layer)(packet *)) {
         /* trimite cadrul */
         to_physical_layer(&s);
 
+        /* log */
+        log_file = fopen(LOG_FILE, "a");
+        print_current_time(log_file);
+        fprintf(log_file, " [sender] Am trimis urmatorul pachet:\n");
+        print_frame(log_file, &s);
+        print_current_time(log_file);
+        fprintf(log_file, " [sender] Am pornit cronometrul (timeout este de %dms)\n", TIMEOUT);
+        fprintf(log_file, "----------------------------------------------------------------------------\n");
+        fclose(log_file);
+
         /* asteapta producerea unui eveniment (ACK corect, ACK eronat, timeout) */
         ev = wait_for_event(TIMEOUT);
 
-//printf("SENDER: ");print_event(ev);
+        /* obtine ACK */
+        from_physical_layer(&s);
+
+        /* log */
+        log_file = fopen(LOG_FILE, "a");
+        print_current_time(log_file);
+        fprintf(log_file, " [sender] Am primit ACK:\n");
+        print_frame(log_file, &s);
+        fclose(log_file);
 
         if (ev == EVENT_CORRECT) {
-            from_physical_layer(&s); /* obtine ACK */
-//print_frame(&s);
+
             if (s.seq == next_frame_to_send) {
 
                 /* obtine urmatorul set de date */
@@ -44,7 +63,26 @@ void sender(bool (*from_network_layer)(packet *)) {
                 /* avans contor */
                 inc(&next_frame_to_send);
             }
+
+            /* log */
+            log_file = fopen(LOG_FILE, "a");
+            fprintf(log_file,
+                    "Am calculat checksum si ACK-ul este corect. Voi trimite "
+                    "pachetul cu Seq No %d\n"
+                    "-----------------------------------------------------------------------------------------------\n",
+                    next_frame_to_send);
+            fclose(log_file);
+        } else if (ev == EVENT_INCORRECT) {
+            /* log */
+            log_file = fopen(LOG_FILE, "a");
+            fprintf(log_file,
+                    "Am calculat checksum si ACK-ul este incorect. Voi trimite "
+                    "pachetul cu Seq No %d\n"
+                    "-----------------------------------------------------------------------------------------------\n",
+                    next_frame_to_send);
+            fclose(log_file);
         }
+
     }
 }
 
@@ -55,8 +93,8 @@ bool chunk_provider(packet *p) {
     if (fd < 0) {
         fd = open(source_filename, O_RDONLY);
         fstat(fd, &str_stat);
-        p->length = 1;
-        p->data[0] = str_stat.st_size;
+        p->length = 4;
+        ((int *)p->data)[0] = str_stat.st_size;
 
         return false;
     }

@@ -3,9 +3,11 @@
 SPEED=1
 DELAY=1
 LOSS=0
-CORRUPT=0
-SOURCE_FILE=$1
-DESTINATION_FILE=$2
+CORRUPT=10
+#SOURCE_FILE=$1
+#DESTINATION_FILE=$2
+SOURCE_FILE='file.in'
+DESTINATION_FILE='file.out'
 
 killall link 2> /dev/null
 killall receiver 2> /dev/null

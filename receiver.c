@@ -11,6 +11,8 @@
 void receiver(bool (*to_network_layer)(packet *)) {
     init(HOST, PORT);
 
+    FILE *log_file;
+
     seq_nr frame_expected = 0; // cadrul asteptat
     frame r, s;
     event ev;
@@ -21,12 +23,26 @@ void receiver(bool (*to_network_layer)(packet *)) {
         /* posibilitati soseste cadru corect, cadru eronat */
         ev = wait_for_event(NO_TIMEOUT);
 
-//printf("RECEIVER: ");print_event(ev);
+        /* obtine cadru*/
+        from_physical_layer(&r);
+
+        /* log */
+        log_file = fopen(LOG_FILE, "a");
+        print_current_time(log_file);
+        fprintf(log_file, " [receiver] Am primit urmatorul pachet:\n");
+        print_frame(log_file, &r);
+        fclose(log_file);
 
         if (ev == EVENT_CORRECT) { /* cadru valid a sosit*/
 
-            from_physical_layer(&r); /* obtine cadru*/
-//print_frame(&r);
+            /* log */
+            log_file = fopen(LOG_FILE, "a");
+            fprintf(log_file,
+                    "Am calculat checksum si pachetul este corect. Voi trimite "
+                    "ACK pentru Seq No %d (ultimul cadru)\n"
+                    "-----------------------------------------------------------------------------------------------\n",
+                    frame_expected);
+            fclose(log_file);
 
             /* este ceea ce se astepta */
             if (r.seq == frame_expected) {
@@ -37,23 +53,39 @@ void receiver(bool (*to_network_layer)(packet *)) {
                 /* avans contor*/
                 inc(&frame_expected);
             }
-
-            /* pregateste seq_nr pt ACK*/
-            s = make_answer_frame(frame_expected - 1);
-
-            /* trimite ACK */
-            to_physical_layer(&s);
+        } else {
+            /* log */
+            log_file = fopen(LOG_FILE, "a");
+            fprintf(log_file,
+                    "Am calculat checksum si am detectat eroare. Voi trimite "
+                    "ACK pentru Seq No %d (ultimul cadru corect pe care l-am primit)\n"
+                    "-----------------------------------------------------------------------------------------------\n",
+                    frame_expected - 1);
+            fclose(log_file);
         }
+
+        /* pregateste seq_nr pt ACK*/
+        s = make_answer_frame(frame_expected - 1);
+
+        /* log */
+        log_file = fopen(LOG_FILE, "a");
+        print_current_time(log_file);
+        fprintf(log_file, " [receiver] Trimit ACK:\n");
+        print_frame(log_file, &s);
+        fclose(log_file);
+
+        /* trimite ACK */
+        to_physical_layer(&s);
     }
 }
 
 bool chunk_processor(packet *p) {
     static int fd = -1;
-    static uint8_t bytes_to_receive;
+    static uint32_t bytes_to_receive;
 
     if (fd < 0) {
         fd = open(destination_filename, O_WRONLY | O_CREAT);
-        bytes_to_receive = p->data[0];
+        bytes_to_receive = ((uint32_t *)p->data)[0];
         return false;
     }
 
